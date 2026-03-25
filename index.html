@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Simulador UNAM - Unidad 3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{font-family:Arial;margin:0;background:#f4f6f9;}
+header{background:#003366;color:white;padding:15px;text-align:center;}
+.container{display:flex;}
+.sidebar{width:240px;background:#e6ecf2;height:100vh;overflow-y:auto;padding:10px;}
+.sidebar button{width:45px;margin:4px;padding:10px;border:none;background:#ccc;}
+.sidebar button.contestada{background:#4CAF50;color:white;}
+.main{flex:1;padding:20px;}
+.timer{position:fixed;top:10px;right:20px;background:red;color:white;padding:10px;}
+.hidden{display:none;}
+table{border-collapse:collapse;width:100%;}
+th,td{border:1px solid #ccc;padding:8px;}
+.correcta{color:green;}
+.incorrecta{color:red;}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>Simulador UNAM - Unidad 3 Reproducción</h2>
+</header>
+
+<div style="padding:20px;">
+<button onclick="vista('inicio')">Examen</button>
+<button onclick="vista('panel')">Panel Profesor</button>
+</div>
+
+<div id="inicio" style="padding:20px;">
+Nombre: <input id="nombre"><br><br>
+Cuenta: <input id="cuenta"><br><br>
+<button onclick="iniciar()">Entrar</button>
+</div>
+
+<div id="examen" class="hidden">
+<div class="timer">Tiempo total: <span id="tiempo"></span></div>
+
+<div class="container">
+<div class="sidebar" id="nav"></div>
+
+<div class="main">
+<h3 id="pregunta"></h3>
+<p><b>Tiempo pregunta:</b> <span id="tiempoPregunta">0</span> s</p>
+<div id="opciones"></div>
+
+<button onclick="ant()">Anterior</button>
+<button onclick="sig()">Siguiente</button><br><br>
+<button onclick="terminar()">Finalizar</button>
+</div>
+</div>
+</div>
+
+<div id="resultado" class="hidden" style="padding:20px;">
+<h2>Resultado</h2>
+<p id="datos"></p>
+<p id="calif"></p>
+<p id="tiempos"></p>
+<div id="detalle"></div>
+<button onclick="pdf()">Descargar PDF</button>
+</div>
+
+<div id="panel" class="hidden" style="padding:20px;">
+<h2>Panel Profesor</h2>
+<button onclick="exportar()">Exportar Excel</button>
+<table id="tabla"></table>
+</div>
+
+<script>
+
+// ================= PREGUNTAS =================
+const preguntas = [
+["El ADN se duplica en:", "G1","S","G2","Mitosis","B"],
+["La reproducción asexual genera:", "Variabilidad","Mutaciones","Clones","Gametos","C"],
+["En metafase los cromosomas:", "Se separan","Se duplican","Se alinean","Desaparecen","C"],
+["Función del ARN mensajero:", "Transporta aa","Lleva info","Forma ribosomas","Replica ADN","B"],
+["El crossing-over ocurre en:", "Profase II","Metafase I","Profase I","Anafase II","C"],
+["La reproducción sexual requiere:", "1 organismo","2 gametos","Clonación","Fisión","B"],
+["La citocinesis divide:", "Núcleo","Citoplasma","ADN","Cromosomas","B"],
+["El ADN está formado por:", "Proteínas","Nucleótidos","Lípidos","Enzimas","B"],
+["En meiosis I se separan:", "Cromátidas","Homólogos","Genes","Núcleos","B"],
+["La gemación ocurre en:", "Humanos","Bacterias","Levaduras","Plantas","C"],
+
+// 11-60 generadas variadas
+["El ARN de transferencia:", "Lleva ADN","Transporta aa","Duplica genes","Forma cromosomas","B"],
+["La fase G1 implica:", "División","Crecimiento","Separación","Reducción","B"],
+["Ventaja sexual:", "Rapidez","Clonación","Variabilidad","Simple","C"],
+["Mitosis produce:", "4 células","2 iguales","1","Gametos","B"],
+["ARN ribosomal:", "Replica","Traduce","Divide","Transcribe","B"],
+["Última fase mitosis:", "Meta","Ana","Telo","Pro","C"],
+["Asexual NO usa:", "Mitosis","Clonación","Gametos","Rapidez","C"],
+["Doble hélice:", "ARN","ADN","Lípidos","Proteína","B"],
+["Cigoto:", "Gameto","Unión","Clon","Espora","B"],
+["Meiosis produce:", "Diploides","Haploides","Iguales","Clones","B"],
+
+// patrón variado
+["Anafase separa:", "Cromátidas","Genes","ADN","Núcleos","A"],
+["Bacterias usan:", "Sexual","Asexual","Mixta","Compleja","B"],
+["ADN almacena:", "Proteínas","Info genética","Energía","Lípidos","B"],
+["Meiosis II es:", "Reducción","Mitosis-like","Fusión","Replicación","B"],
+["ARN usa:", "Timina","Uracilo","Adenina","Citosina","B"],
+["Interfase incluye:", "M","G1,S,G2","Solo G1","Solo S","B"],
+["Huso sirve para:", "Síntesis","Movimiento cromosomas","Respiración","Fotosíntesis","B"],
+["Fecundación:", "Reduce","Une gametos","Divide","Duplica","B"],
+["Esporas en:", "Humanos","Hongos","Aves","Mamíferos","B"],
+["ADN está en:", "Citoplasma","Núcleo","Membrana","Ribosoma","B"],
+
+// completar hasta 60
+["Mitosis mantiene:", "Variabilidad","Mutación","Estabilidad","Caos","C"],
+["Meiosis genera:", "Igualdad","Variabilidad","Clones","Estabilidad","B"],
+["Fragmentación:", "Sexual","Asexual","Mixta","Compleja","B"],
+["Profase:", "Alinea","Condensa","Divide","Separa","B"],
+["ARN sirve para:", "Fotosíntesis","Proteínas","Respiración","División","B"],
+["Metafase:", "Separa","Alinea","Duplica","Divide","B"],
+["Clones son:", "Diferentes","Iguales","Mutados","Haploides","B"],
+["Sexual implica:", "Clones","Mezcla genética","Rapidez","Simple","B"],
+["Telofase:", "Duplica","Forma núcleos","Rompe","Separa","B"],
+["Timina está en:", "ARN","ADN","Proteína","Lípido","B"],
+
+["ARN carece de:", "A","T","C","G","B"],
+["Meiosis reduce:", "Genes","Cromosomas","Proteínas","Energía","B"],
+["Mitosis ocurre en:", "Gametos","Somáticas","Esporas","Semillas","B"],
+["Fisión es:", "Sexual","Asexual","Compleja","Mixta","B"],
+["Gametos son:", "Diploides","Haploides","Clones","Iguales","B"],
+["Cigoto es:", "Haploide","Diploide","Triploide","Nulo","B"],
+["Ribosomas:", "Replican","Sintetizan proteínas","Dividen","Transportan","B"],
+["ADN se replica en:", "M","S","G2","Meta","B"],
+["Crossing-over:", "Reduce","Aumenta variabilidad","Elimina genes","Duplica","B"],
+["Interfase:", "Divide","Prepara célula","Separa","Condensa","B"],
+
+["Anafase II:", "Separa cromátidas","Homólogos","Genes","Núcleos","A"],
+["Sexual requiere:", "Uno","Dos","Tres","Cero","B"],
+["Asexual es:", "Lenta","Rápida","Compleja","Variable","B"],
+["Transcripción:", "ADN→ARN","ARN→ADN","Proteína→ARN","ADN→Prot","A"],
+["Traducción:", "Núcleo","Ribosoma","Membrana","Mitocondria","B"],
+["Meiosis genera:", "2 células","4 células","3","1","B"],
+["Mitosis genera:", "4","2","3","1","B"],
+["Genes están en:", "Membrana","Cromosomas","Citoplasma","Ribosoma","B"],
+["ARNm:", "Lleva info","Transporta aa","Forma ribosoma","Duplica","A"],
+["Variabilidad permite:", "Extinción","Evolución","Clonación","Igualdad","B"]
+];
+
+// ================= VARIABLES =================
+let respuestas=new Array(preguntas.length).fill(null);
+let tiempos=new Array(preguntas.length).fill(0);
+let actual=0;
+let tiempoTotal=preguntas.length*65;
+let inicioTiempo=0;
+let inter,interPregunta;
+
+// ================= FUNCIONES =================
+function iniciar(){
+if(!nombre.value||!cuenta.value){alert("Completa datos");return;}
+vista("examen");
+crearNav();
+mostrar();
+inicioTiempo=Date.now();
+timer();
+timerPregunta();
+}
+
+function timer(){
+inter=setInterval(()=>{
+tiempoTotal--;
+tiempo.innerText=tiempoTotal+" s";
+if(tiempoTotal<=0)terminar();
+},1000);
+}
+
+function timerPregunta(){
+interPregunta=setInterval(()=>{
+tiempos[actual]++;
+tiempoPregunta.innerText=tiempos[actual];
+},1000);
+}
+
+function cambiar(n){
+clearInterval(interPregunta);
+actual=n;
+mostrar();
+timerPregunta();
+}
+
+function crearNav(){
+nav.innerHTML="";
+preguntas.forEach((_,i)=>{
+let b=document.createElement("button");
+b.innerText=i+1;
+b.onclick=()=>cambiar(i);
+nav.appendChild(b);
+});
+}
+
+function mostrar(){
+pregunta.innerText=(actual+1)+". "+preguntas[actual][0];
+opciones.innerHTML="";
+["A","B","C","D"].forEach((l,i)=>{
+opciones.innerHTML+=`
+<label>
+<input type="radio" name="op" value="${l}"
+${respuestas[actual]==l?'checked':''}
+onclick="guardar('${l}')">
+${preguntas[actual][i+1]}
+</label><br>`;
+});
+}
+
+function guardar(v){
+respuestas[actual]=v;
+nav.children[actual].classList.add("contestada");
+}
+
+function sig(){if(actual<preguntas.length-1)cambiar(actual+1);}
+function ant(){if(actual>0)cambiar(actual-1);}
+
+function terminar(){
+clearInterval(inter);
+clearInterval(interPregunta);
+
+let aciertos=0,detalleHTML="";
+preguntas.forEach((p,i)=>{
+let r=respuestas[i]||"-";
+if(r===p[5])aciertos++;
+detalleHTML+=`<p class="${r===p[5]?'correcta':'incorrecta'}">
+${i+1}. ${r} | ${p[5]} | ${tiempos[i]} s
+</p>`;
+});
+
+let cal=(aciertos/preguntas.length*10).toFixed(2);
+let total=Math.floor((Date.now()-inicioTiempo)/1000);
+
+let lista=JSON.parse(localStorage.getItem("res")||"[]");
+lista.push({nombre:nombre.value,cuenta:cuenta.value,cal,aciertos,total});
+localStorage.setItem("res",JSON.stringify(lista));
+
+vista("resultado");
+datos.innerText=`${nombre.value} | ${cuenta.value}`;
+calif.innerText=`Calificación: ${cal} (${aciertos}/60)`;
+tiempos.innerText=`Tiempo total: ${total} s`;
+detalle.innerHTML=detalleHTML;
+}
+
+function vista(v){
+inicio.classList.add("hidden");
+examen.classList.add("hidden");
+resultado.classList.add("hidden");
+panel.classList.add("hidden");
+document.getElementById(v).classList.remove("hidden");
+if(v==="panel")cargarPanel();
+}
+
+function cargarPanel(){
+tabla.innerHTML="<tr><th>Nombre</th><th>Cuenta</th><th>Calificación</th><th>Aciertos</th><th>Tiempo</th></tr>";
+let lista=JSON.parse(localStorage.getItem("res")||"[]");
+lista.forEach(a=>{
+tabla.innerHTML+=`<tr><td>${a.nombre}</td><td>${a.cuenta}</td><td>${a.cal}</td><td>${a.aciertos}</td><td>${a.total}</td></tr>`;
+});
+}
+
+function exportar(){
+let lista=JSON.parse(localStorage.getItem("res")||"[]");
+let csv="Nombre,Cuenta,Calificación,Aciertos,Tiempo\n";
+lista.forEach(a=>{
+csv+=`${a.nombre},${a.cuenta},${a.cal},${a.aciertos},${a.total}\n`;
+});
+let blob=new Blob([csv]);
+let link=document.createElement("a");
+link.href=URL.createObjectURL(blob);
+link.download="resultados.csv";
+link.click();
+}
+
+function pdf(){
+const {jsPDF}=window.jspdf;
+let doc=new jsPDF();
+doc.text(datos.innerText,10,10);
+doc.text(calif.innerText,10,20);
+doc.text(tiempos.innerText,10,30);
+let y=40;
+preguntas.forEach((p,i)=>{
+doc.text(`${i+1}. ${respuestas[i]||"-"} / ${p[5]} (${tiempos[i]}s)`,10,y);
+y+=6;
+});
+doc.save("resultado.pdf");
+}
+
+</script>
+
+</body>
+</html>
